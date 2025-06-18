@@ -46,6 +46,7 @@ for pr in data:
 merged_df = pd.DataFrame(merged_rows, columns=["Numéro", "Titre", "Auteur", "Date de merge", "Lien"])
 closed_df = pd.DataFrame(closed_rows, columns=["Numéro", "Titre", "Auteur", "Date de fermeture", "Lien"])
 
+
 st.title("Pull Requests GitHub – 12 derniers mois")
 st.caption(f"Dépôt : {owner}/{repo}")
 
@@ -70,11 +71,55 @@ with st.expander("📁 Options (affichage)", expanded=False):
     plage = st.selectbox("Plage de temps", ["30 derniers jours", "6 mois", "12 mois"])
     afficher_merged = st.checkbox("Afficher PR mergées", value=True)
     afficher_closed = st.checkbox("Afficher PR fermées", value=True)
+    afficher_graph_merged = st.checkbox("Afficher Graphique PR mergées", value=True)
+    afficher_graph_closed = st.checkbox("Afficher Graphique PR fermées", value=True)
     bouton_reload = st.button("🔄 Rafraîchir les données")
+
+if afficher_graph_merged or afficher_graph_closed :
+    st.subheader("📊 Répartition des PR par auteurs")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    if afficher_graph_merged and afficher_graph_closed == False:
+        with col2:
+            st.markdown("#### PR mergées")
+            fig1, ax1 = plt.subplots(figsize=(5, 5))
+            merged_df["Auteur"].value_counts().head(10).plot(kind="barh", ax=ax1, color="#0083B8")
+            ax1.invert_yaxis()
+            st.pyplot(fig1)
+    elif afficher_graph_merged and afficher_graph_closed:
+        with col1:
+            st.markdown("#### PR mergées")
+            fig1, ax1 = plt.subplots(figsize=(5, 5))
+            merged_df["Auteur"].value_counts().head(10).plot(kind="barh", ax=ax1, color="#0083B8")
+            ax1.invert_yaxis()
+            st.pyplot(fig1)
+
+    if afficher_graph_closed and afficher_graph_merged == False:
+        with col2:
+            st.markdown("#### PR fermées")
+            fig2, ax2 = plt.subplots(figsize=(5, 5))
+            closed_df["Auteur"].value_counts().head(10).plot(kind="barh", ax=ax2, color="#0083B8")
+            ax2.invert_yaxis()
+            st.pyplot(fig2)
+    elif afficher_graph_closed and afficher_graph_merged :
+        with col3:
+            st.markdown("#### PR fermées")
+            fig2, ax2 = plt.subplots(figsize=(5, 5))
+            closed_df["Auteur"].value_counts().head(10).plot(kind="barh", ax=ax2, color="#0083B8")
+            ax2.invert_yaxis()
+            st.pyplot(fig2)
 
 
 st.markdown("""
     <style>
+        /* 🔧 Réserve l'espace pour la sidebar sans décaler tout le contenu */
+        .block-container {
+            max-width: 100%;
+            padding-right: 320px;
+        }
+
+        /* 🎨 Style personnalisé pour la sidebar (expander) */
         div[data-testid="stExpander"] {
             position: fixed;
             top: 100px;
@@ -103,6 +148,11 @@ st.markdown("""
         div[data-testid="stExpander"] label,
         div[data-testid="stExpander"] span {
             color: #eee !important;
+        }
+
+        /* 🔍 Scroll horizontal forcé sur les DataFrames si besoin */
+        .stDataFrame > div {
+            overflow-x: auto;
         }
     </style>
 """, unsafe_allow_html=True)
