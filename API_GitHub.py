@@ -4,12 +4,12 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
+import matplotlib.pyplot as plt
 
-# 🔐 Chargement du token GitHub
 load_dotenv()
 token = os.getenv("GITHUB_TOKEN")
 if not token:
-    st.error("❗ Le token GITHUB_TOKEN est manquant.")
+    st.error("Le token GITHUB_TOKEN est manquant.")
     st.stop()
 
 headers = {
@@ -17,64 +17,92 @@ headers = {
     "Accept": "application/vnd.github+json"
 }
 
-# 🎯 Définir le dépôt cible
 owner = "Shubhamsaboo"
 repo = "awesome-llm-apps"
 url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state=closed&per_page=100"
 limit_date = datetime.now(timezone.utc) - timedelta(days=365)
 
-# 🔍 Requête API GitHub
 response = rqst.get(url, headers=headers)
 if response.status_code != 200:
     st.error(f"Erreur API GitHub ({response.status_code})")
     st.stop()
 
 data = response.json()
-
-# 🗃️ Extraction des PR
-merged_prs = []
-closed_prs = []
+merged_rows = []
+closed_rows = []
 
 for pr in data:
-    closed_at = pr.get("closed_at")
     merged_at = pr.get("merged_at")
-
-    # PR fermées dans la période
-    if closed_at:
-        closed_date = datetime.strptime(closed_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        if closed_date >= limit_date:
-            closed_prs.append({
-                "Numéro": pr["number"],
-                "Titre": pr["title"],
-                "Auteur": pr["user"]["login"],
-                "Date de fermeture": closed_at[:10],
-                "Lien": pr["html_url"]
-            })
-
-    # PR mergées dans la période
+    closed_at = pr.get("closed_at")
     if merged_at:
         merged_date = datetime.strptime(merged_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         if merged_date >= limit_date:
-            merged_prs.append({
-                "Numéro": pr["number"],
-                "Titre": pr["title"],
-                "Auteur": pr["user"]["login"],
-                "Date de merge": merged_at[:10],
-                "Lien": pr["html_url"]
-            })
+            merged_rows.append([pr["number"], pr["title"], pr["user"]["login"], merged_at[:10], pr["html_url"]])
+    if closed_at:
+        closed_date = datetime.strptime(closed_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if closed_date >= limit_date:
+            closed_rows.append([pr["number"], pr["title"], pr["user"]["login"], closed_at[:10], pr["html_url"]])
 
-# 📊 Affichage Streamlit
-st.title("📦 Pull Requests GitHub – 12 Derniers mois")
-st.caption(f"Dépôt inspecté : `{owner}/{repo}`")
+merged_df = pd.DataFrame(merged_rows, columns=["Numéro", "Titre", "Auteur", "Date de merge", "Lien"])
+closed_df = pd.DataFrame(closed_rows, columns=["Numéro", "Titre", "Auteur", "Date de fermeture", "Lien"])
 
-if merged_prs:
-    st.subheader("✅ PR mergées")
-    st.dataframe(pd.DataFrame(merged_prs), use_container_width=True)
-else:
-    st.info("Aucune PR mergée sur les 12 derniers mois.")
+st.title("Pull Requests GitHub – 12 derniers mois")
+st.caption(f"Dépôt : {owner}/{repo}")
 
-if closed_prs:
-    st.subheader("📁 PR fermées")
-    st.dataframe(pd.DataFrame(closed_prs), use_container_width=True)
-else:
-    st.info("Aucune PR fermée sur les 12 derniers mois.")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("PR mergées")
+    if not merged_df.empty:
+        st.dataframe(merged_df, use_container_width=True)
+    else:
+        st.info("Aucune PR mergée.")
+
+with col2:
+    st.subheader("PR fermées")
+    if not closed_df.empty:
+        st.dataframe(closed_df, use_container_width=True)
+    else:
+        st.info("Aucune PR fermée.")
+
+with st.expander("📁 Options (affichage)", expanded=False):
+    auteur = st.text_input("Filtrer par auteur")
+    plage = st.selectbox("Plage de temps", ["30 derniers jours", "6 mois", "12 mois"])
+    afficher_merged = st.checkbox("Afficher PR mergées", value=True)
+    afficher_closed = st.checkbox("Afficher PR fermées", value=True)
+    bouton_reload = st.button("🔄 Rafraîchir les données")
+
+
+st.markdown("""
+    <style>
+        div[data-testid="stExpander"] {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            width: 300px;
+            z-index: 100;
+            background-color: #111;
+            border: 1px solid #444;
+            border-radius: 8px;
+            box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
+            color: #fff;
+        }
+
+        div[data-testid="stExpander"] summary {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        div[data-testid="stExpander"] details[open] > summary {
+            border-bottom: 1px solid #666;
+            margin-bottom: 8px;
+        }
+
+        div[data-testid="stExpander"] p,
+        div[data-testid="stExpander"] li,
+        div[data-testid="stExpander"] label,
+        div[data-testid="stExpander"] span {
+            color: #eee !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
