@@ -85,52 +85,116 @@ else:
 
 # --- Sélection d’auteur ---
 auteurs_possibles = sorted({pr["user"]["login"] for pr in data if pr.get("user")})
-auteur = st.selectbox("Filtrer par auteur (suggestion dynamique)", [""] + auteurs_possibles)
+auteurs_selectionnes = st.multiselect(
+    "Filtrer par un ou plusieurs auteurs",
+    options=auteurs_possibles,
+    default=[],
+    help= "Commence à taper un nom pour filtrer (autocomplete)")
 
 # --- Traitement des PRs ---
 merged_rows, closed_rows = [], []
 
 for pr in data:
+    # récupération du login et avatar
     login = pr.get("user", {}).get("login", "")
-    if auteur and auteur != login:
+    avatar_url = pr.get("user", {}).get("avatar_url", "")
+
+    # (filtrage d’auteur en multi-select)
+    if auteurs_selectionnes and login not in auteurs_selectionnes:
+        continue
+
+    repo_name = pr.get("repo", repo if len(path_parts) == 2 else "")
+
+    if auteurs_selectionnes and login not in auteurs_selectionnes:
         continue
     repo_name = pr.get("repo", repo if len(path_parts) == 2 else "")
     if pr.get("merged_at"):
         d = datetime.strptime(pr["merged_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         if d >= limit_date:
-            merged_rows.append([repo_name, pr["number"], pr["title"], login, d.strftime("%Y-%m-%d"), pr["html_url"]])
+            merged_rows.append([repo_name, pr["number"], pr["title"], login, d.strftime("%Y-%m-%d"), pr["html_url"], avatar_url])
+
     if pr.get("closed_at"):
         d = datetime.strptime(pr["closed_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         if d >= limit_date:
-            closed_rows.append([repo_name, pr["number"], pr["title"], login, d.strftime("%Y-%m-%d"), pr["html_url"]])
+            closed_rows.append([repo_name, pr["number"], pr["title"], login, d.strftime("%Y-%m-%d"), pr["html_url"], avatar_url])
 
 # --- Affichage des tableaux ---
-columns = ["Dépôt", "Numéro", "Titre", "Auteur", "Date", "Lien"]
+columns = ["Dépôt", "Numéro", "Titre", "Auteur", "Date", "Lien", "Avatar"]
 merged_df = pd.DataFrame(merged_rows, columns=columns)
 closed_df = pd.DataFrame(closed_rows, columns=columns)
 
+if (merged_df.empty and closed_df.empty):
+    st.info("Aucune donnée à afficher.")
+    st.stop()
+
+st.markdown("""
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #fff;
+    }
+    th, td {
+        padding: 6px 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        font-size: 14px;
+        color: #111;
+    }
+    th {
+        background-color: #f0f0f0;
+        color: #111;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def render_table_with_scroll(df_html):
+    return f'''
+    <div style="overflow: auto; max-height: 500px; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+        {df_html}
+    </div>
+    '''
+
+def format_avatar(url):
+    return f'<img src="{url}" width="30" style="border-radius:50%;margin:2px"/>'
+
+merged_df_affichable = merged_df.copy()
+closed_df_affichable = closed_df.copy()
+
+ordre_colonnes = ["Numéro", "Avatar", "Auteur", "Titre", "Numéro", "Dépôt", "Date", "Lien"]
+
+merged_df_affichable = merged_df_affichable[ordre_colonnes]
+closed_df_affichable = closed_df_affichable[ordre_colonnes]
+
+
+# Ajout des avatars stylés
+merged_df_affichable["Avatar"] = merged_df_affichable["Avatar"].apply(format_avatar)
+closed_df_affichable["Avatar"] = closed_df_affichable["Avatar"].apply(format_avatar)
+
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("PR mergées")
     if afficher_tableau_merged:
         if not merged_df.empty:
-            st.dataframe(merged_df, use_container_width=True)
+            df = merged_df.copy()
+            df["Avatar"] = df["Avatar"].apply(lambda url: f'<img src="{url}" width="30" style="border-radius:50%"/>')
+            st.markdown(render_table_with_scroll(df.to_html(escape=False, index=False)), unsafe_allow_html=True)
         else:
             st.info("Aucune PR mergée trouvée.")
-
-    else:
-        st.warning("Affichage du tableau PR mergées désactivé.")
 
 with col2:
     st.subheader("PR fermées")
     if afficher_tableau_closed:
         if not closed_df.empty:
-            st.dataframe(closed_df, use_container_width=True)
+            df = closed_df.copy()
+            df["Avatar"] = df["Avatar"].apply(lambda url: f'<img src="{url}" width="30" style="border-radius:50%"/>')
+            st.markdown(render_table_with_scroll(df.to_html(escape=False, index=False)), unsafe_allow_html=True)
         else:
             st.info("Aucune PR fermée trouvée.")
-
-    else:
-        st.warning("Affichage du tableau PR fermées désactivé.")
 
 # --- Graphiques ---
 if afficher_graph_merged or afficher_graph_closed:
@@ -164,26 +228,30 @@ if afficher_graph_merged or afficher_graph_closed:
         st.warning("Affichage du tableau PR mergées désactivé.")
 
 if afficher_evolution_pr:
-    st.subheader("📈 Évolution temporelle des contributions")
+    if not (merged_df.empty and closed_df.empty):
 
-    # Préparation des données temporelles
-    df_merged = merged_df.copy()
-    df_closed = closed_df.copy()
+        st.subheader("📈 Évolution temporelle des contributions")
 
-    df_merged["Date"] = pd.to_datetime(df_merged["Date"])
-    df_closed["Date"] = pd.to_datetime(df_closed["Date"])
+        # Préparation des données temporelles
+        df_merged = merged_df.copy()
+        df_closed = closed_df.copy()
 
-    evolution_merged = df_merged.groupby("Date").size().resample("W").sum()
-    evolution_closed = df_closed.groupby("Date").size().resample("W").sum()
+        df_merged["Date"] = pd.to_datetime(df_merged["Date"])
+        df_closed["Date"] = pd.to_datetime(df_closed["Date"])
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    evolution_merged.plot(ax=ax, label="PR mergées", color="#2ECC71")
-    evolution_closed.plot(ax=ax, label="PR fermées", color="#E67E22")
-    ax.set_title("Évolution des PRs mergées & fermées")
-    ax.set_ylabel("Nombre de PRs")
-    ax.set_xlabel("Semaine")
-    ax.legend()
-    st.pyplot(fig)
+        evolution_merged = df_merged.set_index("Date").resample("W").size()
+        evolution_closed = df_closed.set_index("Date").resample("W").size()
+
+        fig, ax = plt.subplots(figsize=(8, 4))
+        evolution_merged.plot(ax=ax, label="PR mergées", color="#2ECC71")
+        evolution_closed.plot(ax=ax, label="PR fermées", color="#E67E22")
+        ax.set_title("Évolution des PRs mergées & fermées")
+        ax.set_ylabel("Nombre de PRs")
+        ax.set_xlabel("Semaine")
+        ax.legend()
+        st.pyplot(fig)
+    else :
+        st.info("Aucune PR mergée ou fermée à afficher dans ce graphique")
 
 # Custom CSS
 st.markdown("""
