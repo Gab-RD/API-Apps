@@ -4,3 +4,5 @@ The second application, the subject of this project, is a dashboard using the Gi
 
 Using the GitHub API dashboard:
 Enter the URL of your repository or account (automatic detection), then access the statistics, with filtering and display options.
+
+Access to the complete app : http://stats-with-gh-api.streamlit.app/
