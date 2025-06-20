@@ -132,28 +132,36 @@ st.markdown("""
     table {
         width: 100%;
         border-collapse: collapse;
-        background-color: #fff;
+        background-color: #111;
+        border: none !important;
+        box-shadow: none !important;
     }
     th, td {
         padding: 6px 10px;
         text-align: left;
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid #444;
         font-size: 14px;
-        color: #111;
+        color: #eee;
     }
     th {
-        background-color: #f0f0f0;
-        color: #111;
+        background-color: #222;
+        color: #fff;
         position: sticky;
         top: 0;
         z-index: 1;
     }
+    /* Supprimer toute bordure résiduelle du conteneur */
+    .element-container, .stDataFrame, .block-container {
+        border: none !important;
+        box-shadow: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+
 def render_table_with_scroll(df_html):
     return f'''
-    <div style="overflow: auto; max-height: 500px; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+    <div style="overflow: auto; max-height: 500px; padding: 10px; background-color: #111;">
         {df_html}
     </div>
     '''
