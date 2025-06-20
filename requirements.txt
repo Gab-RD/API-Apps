@@ -1,2 +1,5 @@
 pandas
 matplotlib
+dotenv
+datetime
+urllib
