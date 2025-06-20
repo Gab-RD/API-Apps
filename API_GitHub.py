@@ -238,8 +238,6 @@ if afficher_graph_merged or afficher_graph_closed:
 if afficher_evolution_pr:
     if not (merged_df.empty and closed_df.empty):
 
-        st.subheader("📈 Évolution temporelle des contributions")
-
         # Préparation des données temporelles
         df_merged = merged_df.copy()
         df_closed = closed_df.copy()
@@ -250,52 +248,76 @@ if afficher_evolution_pr:
         evolution_merged = df_merged.set_index("Date").resample("W").size()
         evolution_closed = df_closed.set_index("Date").resample("W").size()
 
-        fig, ax = plt.subplots(figsize=(8, 4))
-        evolution_merged.plot(ax=ax, label="PR mergées", color="#2ECC71")
-        evolution_closed.plot(ax=ax, label="PR fermées", color="#E67E22")
-        ax.set_title("Évolution des PRs mergées & fermées")
-        ax.set_ylabel("Nombre de PRs")
-        ax.set_xlabel("Semaine")
-        ax.legend()
-        st.pyplot(fig)
+        with st.container():
+            with st.container():
+
+                fig, ax = plt.subplots(figsize=(6, 2.5))
+                evolution_merged.plot(ax=ax, label="PR mergées", color="#2ECC71")
+                evolution_closed.plot(ax=ax, label="PR fermées", color="#E67E22")
+                ax.set_facecolor("#111")
+                fig.patch.set_facecolor("#111")
+                ax.set_title("Évolution des PRs", fontsize=7, color="#eee")
+                ax.set_ylabel("Nombre de PRs", fontsize=5, color="#eee")
+                ax.set_xlabel("Semaine", fontsize=5, color="#eee")
+                ax.tick_params(axis='both', colors='white', labelcolor='white')
+                ax.tick_params(which='minor', length=3, color='white')
+
+                # Suppression des bordures top et right
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+                # Mettre bottom et left en blanc
+                ax.spines['bottom'].set_color('white')
+                ax.spines['left'].set_color('white')
+
+                ax.legend(fontsize=10)
+
+                st.pyplot(fig)
+
     else :
         st.info("Aucune PR mergée ou fermée à afficher dans ce graphique")
 
 # Custom CSS
 st.markdown("""
-<style>
-.block-container {
-    max-width: 100%;
-    padding-right: 320px;
-}
-div[data-testid="stExpander"] {
-    position: fixed;
-    top: 100px;
-    right: 20px;
-    width: 300px;
-    z-index: 100;
-    background-color: #111;
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
-    color: #fff;
-}
-div[data-testid="stExpander"] summary {
-    font-weight: 600;
-    color: #fff;
-}
-div[data-testid="stExpander"] details[open] > summary {
-    border-bottom: 1px solid #666;
-    margin-bottom: 8px;
-}
-div[data-testid="stExpander"] p,
-div[data-testid="stExpander"] li,
-div[data-testid="stExpander"] label,
-div[data-testid="stExpander"] span {
-    color: #eee !important;
-}
-.stDataFrame > div {
-    overflow-x: auto;
-}
-</style>
+    <style>
+    .block-container {
+        max-width: 100%;
+        padding-right: 320px;
+    }
+    div[data-testid="stExpander"] {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        width: 300px;
+        z-index: 100;
+        background-color: #111;
+        border: 1px solid #444;
+        border-radius: 8px;
+        box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
+        color: #fff;
+    }
+    div[data-testid="stExpander"] summary {
+        font-weight: 600;
+        color: #fff;
+    }
+    div[data-testid="stExpander"] details[open] > summary {
+        border-bottom: 1px solid #666;
+        margin-bottom: 8px;
+    }
+    div[data-testid="stExpander"] p,
+    div[data-testid="stExpander"] li,
+    div[data-testid="stExpander"] label,
+    div[data-testid="stExpander"] span {
+        color: #eee !important;
+    }
+    .stDataFrame > div {
+        overflow-x: auto;
+    }
+    .element-container:has(.stPlotlyChart), 
+    .element-container:has(.stPyplot) {
+        margin-top: -10px;
+        margin-bottom: -10px;
+        padding: 0px;
+        }
+    </style>
 """, unsafe_allow_html=True)
